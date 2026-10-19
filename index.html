@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Крополятор — координаты построенных точек в точном виде</title>
+<meta name="description" content="Рисуешь треугольник и построение в GeoGebra — рядом появляется точная координата каждой точки. Плюс генератор теорем и поиск неравенств.">
+<meta name="theme-color" content="#2f5d50">
+<link rel="icon" href="./public/icon-192.png" type="image/png">
+<!-- Витрина. Сюда приходят по корню адреса, и за десять секунд человек должен
+     понять три вещи: что это, зачем ему, и куда нажать. Поэтому страница
+     одна, без картинок со стороны и без скриптов: открывается мгновенно и при
+     запрещённом JavaScript. -->
+<style>
+  :root{
+    --paper:#f3f6f8; --wash:#fbfaf6; --ink:#192026; --muted:#5a5a52; --quiet:#8a8377;
+    --rule:#c4ced6; --rule-soft:#ece7dc; --accent:#2f5d50; --info:#2d5d86;
+    --mono:'Courier New', monospace;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--paper); color:var(--ink);
+    font-family: Georgia, 'Times New Roman', serif; line-height:1.55;
+    -webkit-font-smoothing: antialiased; }
+  main{ max-width: 46rem; margin:0 auto; padding: 44px 20px 60px; }
+  h1{ margin:0; font-size:30px; letter-spacing:.01em; }
+  .lead{ margin:6px 0 0; color:var(--muted); font-size:16px; }
+  .sub{ margin:4px 0 0; font-family:var(--mono); font-size:12px; color:var(--quiet); }
+  .go{ display:flex; flex-wrap:wrap; gap:10px; margin:22px 0 4px; }
+  .go a{
+    display:inline-block; padding:9px 16px; border:1px solid var(--rule);
+    border-radius:3px; text-decoration:none; color:var(--accent); background:var(--wash);
+    font-size:15px; transition: border-color 120ms ease, background 120ms ease;
+  }
+  .go a:hover{ border-color:var(--accent); background:#fff; }
+  /* Переключатель языка стоит в том же ряду, что и кнопки перехода, и выглядит
+     так же: это такое же действие, а не настройка где-то в стороне. */
+  .go button{
+    font: inherit; cursor: pointer; padding:9px 14px; border-radius:var(--radius);
+    border:1px solid var(--rule); background:var(--paper); color:inherit;
+  }
+  .go button:hover{ border-color:var(--accent); background:#fff; }
+  .go a.main{ background:var(--accent); color:var(--paper); border-color:var(--accent); }
+  .go a.main:hover{ background:#27503f; }
+  h2{ margin:34px 0 8px; font-size:13px; text-transform:uppercase;
+    letter-spacing:.08em; color:var(--accent); }
+  p{ margin:10px 0; }
+  .rows{ border-top:1px solid var(--rule-soft); }
+  .row{ display:flex; gap:14px; padding:12px 0; border-bottom:1px solid var(--rule-soft); }
+  .row b{ flex:0 0 9.5rem; font-weight:normal; color:var(--accent); }
+  .row div{ flex:1 1 auto; min-width:0; }
+  code, .mono{ font-family:var(--mono); font-size:13px; }
+  pre{ margin:10px 0; padding:12px 14px; background:var(--wash);
+    border:1px solid var(--rule-soft); border-radius:3px; overflow-x:auto;
+    font-family:var(--mono); font-size:12.5px; line-height:1.6; }
+  ul{ padding-left:20px; }
+  li{ margin:5px 0; }
+  footer{ margin-top:40px; padding-top:10px; border-top:1px solid var(--rule);
+    font-family:var(--mono); font-size:11.5px; color:var(--quiet); }
+  footer a{ color:var(--accent); }
+  @media (max-width: 560px){
+    main{ padding: 28px 16px 44px; }
+    h1{ font-size:25px; }
+    .row{ display:block; }
+    .row b{ display:block; margin-bottom:2px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Крополятор</h1>
+  <p class="lead" data-t-html>Рисуете построение в GeoGebra — рядом появляется <b>точная координата</b>
+    каждой точки: не «(1.73, 0.42)», а выражение через вершины треугольника.</p>
+  <p class="sub" data-t>считает браузер · ставить ничего не нужно · бесплатно</p>
+
+  <div class="go">
+    <a class="main" href="./public/index.html" data-t>Открыть Крополятор</a>
+    <a href="./Крополятор.html" download data-t>Скачать одним файлом</a>
+    <a href="./Инструкция.md" data-t>Инструкция</a>
+    <!-- Подпись ставит скрипт: кнопка называет язык, НА КОТОРЫЙ переключит. -->
+    <button type="button" id="toggle-lang">English</button>
+  </div>
+
+  <h2 data-t>Что он делает</h2>
+  <p data-t-html>Поставьте три свободные точки — это <code>A</code>, <code>B</code>, <code>C</code>,
+    их описанная окружность считается единичной. Дальше стройте что угодно: середины,
+    перпендикуляры, касательные, инцентр. Каждый построенный объект тут же получает
+    свою запись.</p>
+  <pre>Ma — середина BC          Ma: (b + c)/2
+H  — ортоцентр ABC        H:  a + b + c
+w  — описанная ABC        w:  z·z̄ = 1
+l  — перпендикуляр из A   l:  z − bc·z̄ = a − bc/a</pre>
+  <p data-t>Дальше с этим можно работать: проверить своё утверждение, найти, при каком условии
+    оно выполняется, или попросить генератор поискать теоремы на вашем чертеже.</p>
+
+  <h2 data-t>Три движка</h2>
+  <div class="rows">
+    <div class="row"><b>Компланатор</b>
+      <div data-t-html>Комплексные числа: вершины на единичной окружности, координата — выражение
+        через <code>a, b, c</code>. Проверяет утверждения точно: «выполняется всегда»
+        означает доказано, а не «сошлось на этом чертеже».</div></div>
+    <div class="row"><b>Бариканатор</b>
+      <div data-t>Барицентрика: однородная тройка над длинами сторон. Там, где комплексные
+        числа буксуют (всё, что про длины и площади), считает он.</div></div>
+    <div class="row"><b data-t>Генератор теорем</b>
+      <div data-t>Достраивает ваш чертёж и ищет на нём верные утверждения, отсеивая то, что
+        следует из построения, доказывается векторами или стоит в учебнике.</div></div>
+  </div>
+  <p class="sub" data-t>Бариканатор и генератор — платные: 150 ₽ за месяц доступа к каждому.
+    Компланатор бесплатен и останется бесплатным. Заведите учётную запись прямо в приложении.</p>
+
+  <h2 data-t>Ещё</h2>
+  <ul>
+    <li data-t-html><b>Неравенства и тождества.</b> Ищет точные границы между величинами чертежа —
+      длинами, расстояниями, площадями, углами.</li>
+    <li data-t-html><b>Задачи на ГМТ.</b> Одна точка едет, остальные стоят: что при этом не меняется.</li>
+    <li data-t-html><b>Выгрузка.</b> Условие словами, чертёж и протокол расчёта — одним файлом,
+      который открывается двойным кликом и печатается как есть.</li>
+    <li data-t-html><b>Работает с телефона</b> и без сети: скачанный файл считает сам, только
+      чертёж приходит от GeoGebra.</li>
+  </ul>
+
+  <!-- Реквизиты и оферта — отдельными ссылками в подвале: их ищет и
+       проверяющий платёжного сервиса, и покупатель перед оплатой. -->
+  <footer data-t-html>
+    Крополятор · <a href="https://github.com/mitiakrokhalev-lab/mitiakrokhalev-lab.github.io">исходники</a>
+    · <a href="./оферта.html">оферта</a>
+    · <a href="./реквизиты.html">реквизиты</a>
+  </footer>
+</main>
+
+<!-- ЯЗЫК НА ВИТРИНЕ.
+     Это первая страница, которую видит пришедший, и до недавнего времени она
+     была русской целиком — включая для того, кто пришёл за английской версией.
+     Скрипт тот же, что у приложения; словарь приезжает только при нажатии. -->
+<script type="module">
+  import { setLang, savedLang, applyLang, onLang, lang } from './src/lang/i18n.js';
+  const button = document.getElementById('toggle-lang');
+  const paint = () => {
+    applyLang();
+    button.textContent = lang() === 'ru' ? 'English' : 'Русский';
+  };
+  onLang(paint);
+  // Выбор общий с приложением: кто переключился там, здесь увидит английский.
+  setLang(savedLang()).then(paint, paint);
+  button.addEventListener('click', () => {
+    setLang(lang() === 'ru' ? 'en' : 'ru').catch(() => { /* остаёмся на русском */ });
+  });
+</script>
+</body>
+</html>

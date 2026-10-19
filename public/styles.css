@@ -1,0 +1,700 @@
+/* ============ ПАЛИТРА И МЕРЫ ==============================================
+   ТРИ РОЛИ СЕРОГО, А НЕ СЕМЬ ОТТЕНКОВ. Панель росла по шагам, и серый цвет
+   приписывался каждый раз заново: восемь близких значений вперемешку. Глаз
+   читает такое как неряшливость, хотя каждое из них само по себе хорошо.
+   Поэтому роли названы: второй план (пояснения), третий (служебные подписи),
+   подсказка (то, что видно только при наведении).
+
+   ДВА ЦВЕТА СМЫСЛА. Синий — настройка, поиск, ход дела; красный — не выполнено,
+   отвергнуто, не проверялось. Третьего смысла нет, и третьего цвета тоже.
+   Отдельно жёлтый: «не успели посчитать» — не ошибка и не успех.
+
+   Бумага, тонкие линейки, засечки в тексте и моноширинный для имён — это
+   характер интерфейса, и он остаётся. */
+:root{
+  --paper:#f3f6f8;       /* фон страницы */
+  --wash:#fbfaf6;        /* фон панели: чуть теплее бумаги */
+  --ink:#192026;         /* основной текст */
+  --muted:#5a5a52;       /* второй план: пояснения, подписи строк */
+  --quiet:#8a8377;       /* третий план: служебные подписи, шапки таблиц */
+  --faint:#a49c8d;       /* подсказка: видно, пока не навели */
+  --rule:#c4ced6;        /* линейка */
+  --rule-soft:#ece7dc;   /* линейка внутри таблицы: тоньше по смыслу */
+  --accent:#2f5d50;      /* действие и подтверждение */
+  --info:#2d5d86;        /* настройки и ход поиска */
+  --info-wash:#e8eff5;
+  --warn:#a4544a;        /* несделанное и отвергнутое */
+  --warn-wash:#f6e9e6;
+  --warn-ink:#7d3f37;    /* текст на красной подложке */
+  --pending:#8a6d3b;     /* не успели посчитать */
+  --pending-wash:#f6f3ea;
+  --kind-line:#4a6d8c;   /* прямая */
+  --kind-circle:#8c6a4a; /* окружность */
+  --mono: 'Courier New', monospace;
+  --radius:3px;
+  --pad:16px;            /* отступ панели по бокам */
+  --tr:120ms ease;       /* одна длительность на все состояния */
+}
+* { box-sizing:border-box; }
+html,body{ margin:0; height:100%; background:var(--paper); color:var(--ink);
+  font-family: Georgia, 'Times New Roman', serif; line-height:1.45;
+  -webkit-font-smoothing: antialiased; }
+/* ЦИФРЫ ПО РАЗРЯДАМ. В отчёте о ходе поиска числа меняются каждые сто
+   миллисекунд, и при разной ширине знаков строка дёргается. */
+code, .report, .diag, textarea, input, th, td.name{ font-variant-numeric: tabular-nums; }
+.app{ display:flex; height:100vh; overflow:hidden; }
+.stage{ flex: 1 1 62%; min-width: 320px; display:flex; flex-direction:column; border-right: 1px solid var(--rule); }
+.stage header{ padding: 14px 18px 10px; border-bottom: 1px solid var(--rule); }
+.stage header h1{ margin:0; font-size:20px; letter-spacing:0.02em; }
+.stage header p{ margin:4px 0 0; font-size:12.5px; color:var(--muted); font-family: var(--mono); }
+#ggb-element{ flex:1; }
+/* overflow-y обязателен: панель с генератором выше экрана, и без прокрутки
+   её нижняя часть — кнопки и отчёт — просто недостижима. */
+.panel{ flex: 1 1 38%; min-width: 300px; display:flex; flex-direction:column;
+  background: var(--wash); overflow-y:auto; }
+.panel header{ padding: 14px 18px 10px; border-bottom: 1px solid var(--rule); display:flex; align-items:baseline; justify-content:space-between; }
+.panel header h2{ margin:0; font-size:16px; text-transform:uppercase; letter-spacing:0.08em; color:var(--accent); }
+.panel header span{ font-family: var(--mono); font-size:11px; color:var(--quiet); }
+/* Таблица — главное в панели, поэтому она забирает всё свободное место.
+   min-height:0 обязателен: без него flex-элемент не сжимается ниже своего
+   содержимого и таблицу выдавливает в ноль. */
+.table-wrap{ flex: 1 1 auto; min-height: 120px; overflow-y:auto; }
+/* Наведение на строку: таблица длинная, и глазу нужна опора, чтобы не
+   соскользнуть на соседнюю формулу. Полосатости при этом нет — она спорила бы
+   с цветными пометками видов. */
+tbody tr:hover td{ background: var(--info-wash); }
+table{ width:100%; border-collapse:collapse; }
+thead th{ position:sticky; top:0; background:var(--wash); text-align:left; font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--quiet); padding: 8px 16px; border-bottom: 1px solid var(--rule); }
+tbody td{ padding: 10px 16px; border-bottom: 1px solid var(--rule-soft); vertical-align: middle; }
+tbody td.name{ font-family: var(--mono); font-weight:bold; color:var(--accent); width: 70px; }
+tbody td.formula{ font-size:15px; }
+tbody tr.unsupported td.formula{ color:var(--warn); font-style:italic; font-family: var(--mono); font-size:12px; }
+tbody tr.free td.name::after{ content:" •"; color:var(--accent); }
+.empty{ padding: 24px var(--pad); color:var(--quiet); font-family: var(--mono);
+  font-size:12.5px; line-height:1.7; max-width: 46ch; }
+/* Справка нужна изредка, а места занимала больше всех — поэтому свёрнута. */
+.legend{ flex: 0 0 auto; border-top:1px solid var(--rule); font-family: var(--mono);
+  font-size:11px; color:var(--quiet); line-height:1.6; }
+.legend > summary{ padding: 8px 16px; cursor:pointer; color:var(--muted); }
+.legend[open] > summary{ color:var(--accent); margin: 0 -16px; }
+.legend[open]{ padding: 0 16px 10px; max-height: 40vh; overflow-y:auto; }
+tbody tr.line td.name{ color:var(--kind-line); }
+tbody tr.line td.name::after{ content:" —"; color:var(--kind-line); }
+tbody tr.circle td.name{ color:var(--kind-circle); }
+tbody tr.circle td.name::after{ content:" ○"; color:var(--kind-circle); }
+tbody td.formula .note{ display:block; margin-top:3px; font-family: var(--mono); font-size:11px; color:var(--quiet); }
+tbody td.formula .note.mismatch{ color:var(--warn); font-weight:bold; }
+
+/* --- разделитель: панель можно сузить, чтобы GeoGebra была больше ------- */
+.stage{ flex: 1 1 auto; }
+/* min-height: 0 — не украшение, а условие прокрутки.
+   Элемент колоночного флексбокса по умолчанию не сжимается ниже своего
+   содержимого (min-height: auto). Панель с раскрытым генератором высотой в
+   четыре с половиной тысячи пикселей растягивает себя вместо того, чтобы
+   прокручиваться, и нижняя часть просто обрезается контейнером. */
+.panel{ flex: 0 0 var(--panel-width, 34%); min-width: 220px; max-width: 70%;
+  min-height: 0; }
+.splitter{
+  flex: 0 0 6px; cursor: col-resize; background: var(--rule);
+  position: relative; touch-action: none;
+}
+.splitter::after{
+  content:""; position:absolute; inset:0 -4px; /* удобная зона захвата */
+}
+.splitter:hover, .splitter.dragging{ background: var(--accent); }
+body.resizing{ cursor: col-resize; user-select: none; }
+/* пока тянем, iframe апплета не должен перехватывать мышь */
+body.resizing #ggb-element{ pointer-events: none; }
+
+.chip{
+  margin-top: 8px; font: inherit; font-size: 11.5px; font-family: var(--mono);
+  padding: 3px 9px; border: 1px solid var(--rule); border-radius: var(--radius);
+  background: transparent; color: var(--muted); cursor: pointer;
+  transition: border-color var(--tr), color var(--tr), background var(--tr);
+}
+.chip:hover{ border-color: var(--accent); color: var(--accent); }
+/* НАЖАТИЕ ВИДНО. Кнопка без отклика на нажатие читается как неработающая —
+   особенно на счёте, который идёт секунды. */
+.chip:active{ background: var(--info-wash); }
+.chip:disabled{ opacity:.5; cursor:default; border-color: var(--rule); color: var(--faint); }
+/* Обводка фокуса — не украшение: панель целиком проходится с клавиатуры. */
+.chip:focus-visible, .canon:focus-visible{ outline:2px solid var(--info); outline-offset:1px; }
+.chip[aria-pressed="true"]{ background: var(--accent); border-color: var(--accent); color: var(--paper); }
+
+/* --- командная строка ---------------------------------------------------- */
+.console{ flex: 0 0 auto; border-top: 1px solid var(--rule); }
+.console > summary{
+  padding: 7px 16px; cursor:pointer;
+  font-family: var(--mono); font-size:11px;
+  text-transform:uppercase; letter-spacing:0.06em; color:var(--quiet);
+}
+.console[open] > summary{ color:var(--accent); }
+/* Отступы держит контейнер, а заголовок их «отматывает» — так дети остаются
+   с обычным width:100% и ничего не перебивают друг у друга. */
+.console[open]{ padding: 0 16px 10px; }
+.console[open] > summary{ margin: 0 -16px; }
+/* отчёт не должен раздувать панель: длинный список прокручивается сам */
+.console .report{ max-height: 22vh; overflow-y:auto; }
+.console textarea{
+  width: 100%; resize:vertical; min-height:44px;
+  font-family: var(--mono); font-size:12.5px; line-height:1.5;
+  padding:7px 9px; border:1px solid var(--rule); border-radius:3px;
+  background:var(--paper); color:var(--ink);
+}
+.console textarea:focus{ outline:none; border-color:var(--accent); }
+.console-bar{ display:flex; gap:8px; margin-top:6px; }
+.console-bar .chip{ margin-top:0; }
+.report{ margin-top:8px; font-family: var(--mono); font-size:11.5px; line-height:1.6; }
+.report .ok{ color:var(--accent); }
+.report .bad{ color:var(--warn); }
+.report code{ color:var(--muted); }
+.report dl{ margin:2px 0 0 14px; }
+.report .value{ display:block; margin:2px 0 0 14px; font-size:13px; }
+.report .nature{ color:var(--accent); }
+.report .name{ color:var(--accent); font-weight:bold; }
+
+/* --- канонический вид уравнения по кнопке -------------------------------- */
+/* Кнопка живёт в той же ячейке, что и формула, но не должна с ней спорить за
+   место: держим её мелкой и приглушённой, пока на неё не навели. */
+.canon{
+  margin-left: 8px; vertical-align: middle;
+  font-family: var(--mono); font-size: 10px;
+  padding: 1px 5px; border: 1px solid var(--rule); border-radius: 3px;
+  background: transparent; color: var(--faint); cursor: pointer;
+}
+.canon{ transition: border-color var(--tr), color var(--tr); }
+.canon:hover{ border-color: var(--accent); color: var(--accent); }
+
+/* --- режим «движок выключен» --------------------------------------------- */
+.chip.off{ background:var(--warn); border-color:var(--warn); color:var(--paper); }
+#mode-note{
+  display: none;
+  padding: 8px 16px; border-bottom: 1px solid var(--rule);
+  background: var(--warn-wash); color: var(--warn-ink);
+  font-family: var(--mono); font-size: 11px; line-height: 1.5;
+}
+body.engine-off #mode-note{ display: block; }
+
+/* Строка, которую не успели посчитать в отведённое время. Не ошибка и не
+   успех — отдельное состояние, поэтому и цвет отдельный: не красный
+   (ничего не сломалось), но и не обычный (ответа пока нет). */
+tbody tr.pending td.formula{ color:var(--pending); font-family: var(--mono); font-size:12px; }
+.canon.compute{ border-color:var(--pending); color:var(--pending); }
+.canon.compute:hover{ border-color: var(--accent); color: var(--accent); }
+.canon.compute:disabled{ opacity:.6; cursor:default; }
+
+/* Строка замера под шапкой. Намеренно неяркая: смотрят на неё только когда
+   что-то подвисло, а мешать всё остальное время она не должна. */
+.diag{
+  padding:2px 10px 6px; font-family: var(--mono); font-size:11px;
+  color:var(--quiet); border-bottom:1px solid var(--rule);
+}
+
+/* Строка отчёта, которую не успели посчитать: не ошибка и не успех. */
+.report .pending-line{ color:var(--pending); }
+
+/* --- переключатель движков ------------------------------------------------ */
+/* Кнопка называет ТЕКУЩИЙ движок, а не действие: так видно, в каких координатах
+   сейчас читается таблица, и это важнее, чем подсказать, куда переключиться. */
+.chip.engine{ font-weight: bold; border-color: var(--accent); color: var(--accent); }
+.chip.engine.bary{ background: var(--accent); color: var(--paper); }
+body.engine-bary .panel{ background: #f7f9f6; }
+
+/* ---- панель генератора ---- */
+.gen-hint{ margin:6px 0; font-size:11.5px; line-height:1.5; color:var(--muted); }
+/* Подсказка о беде, а не о порядке вещей: панель платного движка, который не
+   пришёл, объясняется здесь же, и серым это читать нельзя. */
+.gen-hint.bad{ color:var(--warn); }
+.gen-row{ display:flex; align-items:center; gap:8px; margin:6px 0; font-size:12px; }
+.gen-row span{ flex:0 0 auto; color:var(--muted); }
+.gen-row input[type="text"]{ flex:1 1 auto; min-width:0; }
+.gen-row input{ font:inherit; font-family:var(--mono); padding:3px 6px;
+  border:1px solid var(--rule); border-radius:4px; background:var(--paper); }
+.gen-row input[type="number"]{ width:64px; }
+.gen-cols{ display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; }
+.gen-cols > div{ flex:1 1 200px; min-width:0; }
+.gen-cols h4{ margin:0 0 4px; font-size:11px; text-transform:uppercase;
+  letter-spacing:.06em; color:var(--quiet); font-weight:600; }
+.gen-grid{ display:flex; flex-direction:column; gap:2px; }
+.gen-op, .gen-pred{ display:flex; align-items:center; gap:6px; font-size:11.5px; cursor:pointer; }
+.gen-op span, .gen-pred span{ flex:1 1 auto; min-width:0; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; }
+.gen-op input[type="number"]{ flex:0 0 auto; width:52px; font-family:var(--mono);
+  font-size:11px; padding:1px 4px; border:1px solid var(--rule); border-radius:3px; }
+.report .gen-stat{ margin:2px 0; color:var(--muted); }
+.report .working{ color:var(--accent); }
+.report .warn{ color:var(--warn); }
+/* Отчёт о том, КАК считали, — под вопросиком: он нужен, когда что-то пошло не
+   так, а в остальное время только загораживает выдачу. */
+.gen-diag{ margin:2px 0 6px; }
+.gen-diag > summary{
+  display:inline-block; list-style:none; cursor:pointer;
+  width:17px; height:17px; line-height:15px; text-align:center;
+  border:1px solid var(--rule); border-radius:50%;
+  font-family:var(--mono); font-size:11px; color:var(--quiet); background:transparent;
+}
+.gen-diag > summary::-webkit-details-marker{ display:none; }
+.gen-diag > summary:hover{ border-color:var(--accent); color:var(--accent); }
+.gen-diag[open] > summary{ border-color:var(--accent); color:var(--accent); }
+.gen-diag > div{ margin-top:4px; padding-left:10px; border-left:2px solid var(--rule); }
+
+/* Кнопка стоит в строке со счётом — прижимать её к следующей строке не надо. */
+.gen-left .chip{ margin-top:0; margin-left:4px; vertical-align:baseline; }
+
+.gen-facts{ margin:6px 0 0; padding-left:22px; }
+.gen-facts li{ margin:3px 0; white-space:pre-wrap; }
+.gen-weight{ display:inline-block; min-width:18px; margin-right:6px; padding:0 4px;
+  border-radius:3px; background:var(--rule); color:var(--muted); font-size:10px; text-align:center; }
+
+/* Блок генерирования большой по существу: два списка флажков и длинная выдача.
+   Поэтому и списки, и отчёт прокручиваются внутри себя — иначе один раскрытый
+   блок выдавливает из панели таблицу, ради которой сюда и приходят. */
+/* Внутренней прокрутки у списков нет намеренно: панель прокручивается сама,
+   а два вложенных скроллбара — это колесо мыши, которое делает не то, что
+   от него ждут. Ограничена только выдача: в ней бывает две сотни строк. */
+.gen-grid{ overflow: visible; }
+#gen-report{ max-height: 42vh; }
+/* Когда панель узкая, две колонки не помещаются рядом — пусть встают друг под
+   друга, а не жмут названия построений до многоточия. */
+@media (max-width: 520px){ .gen-cols > div{ flex-basis: 100%; } }
+.canon.draw{ margin-left:8px; }
+.gen-facts li:hover .canon.draw{ border-color:var(--accent); color:var(--accent); }
+.gen-cost{ font-family:var(--mono); font-size:10px; color:var(--faint); white-space:nowrap; }
+
+/* Расшифровка построения под фактом: чем каждый объект стал на чертеже. */
+.gen-plan { margin: .35rem 0 .1rem 1.1rem; font-size: .82em; opacity: .85; }
+.gen-plan p { margin: 0 0 .2rem; opacity: .7; }
+.gen-plan ol { margin: 0; padding-left: 1.2rem; }
+.gen-plan li { margin: .1rem 0; }
+.gen-plan code { font-family: ui-monospace, monospace; }
+
+/* Условие задачи под фактом: текст читают, а не сверяют, поэтому моноширинный
+   шрифт здесь ни к чему — только сохранение переносов. */
+.gen-statement { margin: .4rem 0 .2rem 1.1rem; }
+.gen-statement pre { margin: 0 0 .3rem; white-space: pre-wrap; font-family: inherit;
+  font-size: .9em; line-height: 1.45; padding: .5rem .6rem; background: var(--rule-soft);
+  border-left: 3px solid var(--accent); border-radius: 3px; }
+
+/* Список сорвавшихся стадий: их видно, но они не заслоняют найденное. */
+.gen-broken { margin: .25rem 0 0 0; padding-left: 1.2rem; }
+.gen-broken li { margin: .1rem 0; }
+
+/* Потолки использования: таблица под полем бюджета. */
+.gen-ceiling { margin: .3rem 0 .6rem; font-size: .85em; }
+.gen-ceiling summary { cursor: pointer; opacity: .75; }
+.gen-ceiling p { margin: .4rem 0; opacity: .85; }
+.gen-ceiling-table { width: 100%; border-collapse: collapse; margin: .4rem 0; }
+.gen-ceiling-table th, .gen-ceiling-table td { text-align: left; padding: 3px 6px;
+  border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+.gen-ceiling-table th { font-weight: normal; text-transform: uppercase;
+  font-size: .82em; letter-spacing: .05em; color: var(--quiet); }
+/* Разведанный слой: там замер, а не оценка. */
+.gen-ceiling-table tr.real td { background: var(--pending-wash); }
+
+/* Панель генератора: группы построений, поле лимита и сводка прогноза. */
+.gen-group { grid-column: 1 / -1; margin: .5rem 0 .15rem; font-size: .82em;
+  opacity: .6; text-transform: lowercase; letter-spacing: .03em; }
+.gen-limit { width: 3.2rem; margin: 0 .35rem 0 .2rem; padding: 0 .2rem;
+  font: inherit; font-size: .85em; }
+.gen-forecast { margin: .4rem 0; }
+.gen-forecast .gen-stat { margin: .2rem 0; }
+.gen-forecast .gen-stat.warn { color: var(--warn); }
+
+/* Галочки в строке настроек: без этого они наследуют оформление текстового
+   поля — моноширинный шрифт и отступы — и выглядят как пустая рамка. */
+.gen-row input[type="checkbox"] { width: auto; margin: 0 0 0 auto; padding: 0;
+  transform: scale(1.15); accent-color: var(--accent); }
+.gen-row:has(input[type="checkbox"]) span { flex: 1 1 auto; }
+
+/* Знак вопроса у строки настройки: пояснение по требованию, а не всегда. */
+.hint-toggle { margin-left: 6px; width: 18px; height: 18px; padding: 0; flex: 0 0 auto;
+  border: 1px solid var(--faint); border-radius: 50%; background: transparent;
+  color: var(--quiet); font: inherit; font-size: 11px; line-height: 1; cursor: pointer; }
+.hint-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.hint-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.gen-cols { position: relative; }
+
+/* Обобщение факта: без чего он всё равно верен. */
+.gen-general { margin: .3rem 0 .5rem 1.4rem; font-size: .9em; }
+.gen-general p { margin: .2rem 0; }
+.gen-general ul { margin: .2rem 0 .2rem 1.2rem; }
+
+/* Пересечение с лимитом 0: строятся только точки схождения. */
+.gen-onlyjoin { font-size: .8em; color: var(--pending); margin-left: .3em; }
+
+/* Поле независимой точки рядом с кнопкой ГМТ. */
+.locus-var { width: 3.2em; margin-left: .4rem; text-align: center; }
+
+/* Выбор независимой точки рядом с кнопкой ГМТ. */
+.locus-pick { font-size: .85em; opacity: .8; margin-left: .5rem; }
+
+/* Классические построения: доля жребиев вместо галочки. Названия у них
+   длинные и читать их надо целиком — поэтому переносим, а не обрезаем
+   многоточием, как в списке обычных построений. */
+.gen-classic-head { margin: .7rem 0 .2rem; font-size: .95em; }
+.gen-classic-row span { white-space: normal; overflow: visible; text-overflow: clip; }
+.gen-classic-row .gen-share { flex: 0 0 auto; width: 3.2rem; font-family: var(--mono);
+  font-size: 11px; padding: 1px 4px; border: 1px solid var(--rule); border-radius: 3px; }
+.gen-classic-row .gen-share.off { opacity: .45; }
+#gen-classic-total b { font-family: var(--mono); }
+
+/* ============ ЕДИНЫЙ ВИД ПАНЕЛИ ГЕНЕРАТОРА ==============================
+   Панель росла по шагам, и каждый режим оформлялся по-своему: где заголовок,
+   где просто флажок, пояснения местами свёрнуты, местами стеной текста. Здесь
+   всё сведено к одному приёму.
+
+   ДВА ЦВЕТА, И У КАЖДОГО СВОЯ РАБОТА. Синий — «это настройка, это поиск, это
+   идёт»; красный — «сюда смотри: не выполнено, отвергнуто, не проверялось».
+   Третьего смысла нет, поэтому третьего цвета тоже нет. */
+/* Палитра объявлена целиком в начале файла — тут остаётся только смысл. */
+
+/* ---- пояснение под вопросиком ---------------------------------------------
+   Текста в панели было больше, чем настроек, и читать его приходилось всем и
+   всегда. Теперь он рядом с тем, что объясняет, и открывается по требованию. */
+.why{ display:inline-block; vertical-align:middle; margin-left:4px; }
+.why > summary{
+  display:inline-block; list-style:none; cursor:pointer; user-select:none;
+  width:16px; height:16px; line-height:14px; text-align:center;
+  border:1px solid var(--rule); border-radius:50%;
+  font-family:var(--mono); font-size:10.5px; color:var(--quiet);
+}
+.why > summary::-webkit-details-marker{ display:none; }
+.why > summary::marker{ content:""; }
+.why > summary:hover{ border-color:var(--info); color:var(--info); background:var(--info-wash); }
+.why > summary:focus-visible{ outline:2px solid var(--info); outline-offset:1px; }
+.why[open]{ display:block; margin:4px 0 8px; }
+.why[open] > summary{ border-color:var(--info); color:var(--info); background:var(--info-wash); }
+.why[open] > div{
+  margin-top:5px; padding:2px 0 2px 10px;
+  border-left:2px solid var(--info-wash);
+}
+.why .gen-hint:first-child{ margin-top:2px; }
+.why .gen-hint:last-child{ margin-bottom:2px; }
+
+/* ---- режим: флажок, под ним его настройки --------------------------------
+   У всех режимов — условной теоремы, ГМТ, неравенств, тождеств — вид теперь
+   один: строка с флажком, а раскрывшиеся настройки отбиты слева чертой. Так
+   видно, что к чему относится, без заголовков и рамок. */
+.gen-row > span{ display:flex; align-items:center; gap:2px; }
+.gen-row:has(> input[type="checkbox"]) > span{ color:var(--ink); }
+.gen-row:has(> input[type="checkbox"]:checked) > span{ color:var(--info); font-weight:600; }
+#gen-hyp-box, #gen-locus-box, #gen-ineq-box, #gen-ident-box{
+  margin:2px 0 10px 2px; padding-left:11px;
+  border-left:2px solid var(--info-wash);
+}
+.gen-row input[type="checkbox"]{ accent-color:var(--info); }
+.gen-row input:focus-visible, .gen-row select:focus-visible{
+  outline:2px solid var(--info); outline-offset:1px;
+}
+.gen-row select{
+  flex:1 1 auto; min-width:0; font:inherit; font-size:11.5px;
+  font-family:var(--mono); padding:2px 5px;
+  border:1px solid var(--rule); border-radius:4px;
+  background:var(--paper); color:var(--ink);
+}
+
+/* ---- настройка, которая сейчас ничего не делает --------------------------
+   Слои не влияют на величины: у них счёт идёт от НАРИСОВАННЫХ точек, а не от
+   глубины замыкания. Пока выбраны только неравенства с тождествами, поле
+   гасится и говорит об этом — иначе человек крутит его и ждёт перемен. */
+.gen-row.idle > span{ color:var(--quiet); }
+.gen-row.idle input{ opacity:.5; }
+.gen-idle-note{
+  margin:2px 0 8px; padding:4px 8px; font-size:11px; line-height:1.45;
+  background:var(--warn-wash); color:var(--warn); border-radius:3px;
+}
+
+/* ---- выдача: красным то, что требует внимания ---------------------------- */
+.report .warn{ color:var(--warn); }
+.report .gen-stat b{ color:var(--info); font-weight:600; }
+.gen-weight{ background:var(--info-wash); color:var(--info); }
+.gen-facts li.soft .gen-weight{ background:var(--warn-wash); color:var(--warn); }
+.chip.recheck{ border-color:var(--warn); color:var(--warn); }
+.chip.recheck:hover{ background:var(--warn-wash); }
+
+/* Строка хода поиска — синим: это «идёт», а не «готово». */
+.report .working{ color:var(--info); }
+.report .working::before{ content:"· "; color:var(--info); }
+
+/* ---- подсветка РЕЖИМА: фоном, а не только чертой ------------------------
+   Включённый режим должен быть виден с одного взгляда, а не вычитываться по
+   галочкам. Фон бледный нарочно: это подсветка, а не плашка, и читаемость
+   текста внутри она менять не должна. */
+#gen-hyp-box, #gen-locus-box, #gen-ineq-box, #gen-ident-box{
+  background:var(--info-wash);
+  border-left:3px solid var(--info);
+  border-radius:0 3px 3px 0;
+  padding:7px 9px 7px 11px;
+  margin:4px 0 12px;
+}
+/* Пояснение внутри подсвеченного блока на том же фоне тонуло — поднимаем. */
+#gen-hyp-box .why[open] > div, #gen-locus-box .why[open] > div,
+#gen-ineq-box .why[open] > div, #gen-ident-box .why[open] > div{
+  background:#fff; border-left-color:var(--info);
+  padding:5px 8px; border-radius:0 3px 3px 0;
+}
+
+/* ---- заголовок раздела: один вид на все разделы --------------------------
+   Было вразнобой: у одного раздела вопросик под заголовком, у другого рядом,
+   у третьего свой класс. Теперь заголовок — всегда строка с названием и
+   вопросиком в ней же. */
+.gen-cols h4, #gen-block h4{
+  display:flex; align-items:center; gap:4px;
+  margin:0 0 5px; padding-bottom:3px;
+  font-size:11px; text-transform:uppercase; letter-spacing:.07em;
+  color:var(--info); font-weight:600;
+  border-bottom:1px solid var(--info-wash);
+}
+#gen-block h4{ position:relative; }
+#gen-block h4 .why{ margin-left:auto; }
+#gen-block h4 .why[open]{ display:inline-block; margin:0 0 0 auto; }
+/* Пояснение в заголовке раскрывается ВСПЛЫВАЮЩИМ блоком: внутри строки
+   заголовка обычный текст растянул бы саму строку и сдвинул всё ниже. */
+#gen-block h4 .why[open] > div{
+  position:absolute; top:100%; left:0; right:0; z-index:5;
+  margin-top:3px; padding:7px 9px;
+  background:#fff; border:1px solid var(--rule); border-left:3px solid var(--info);
+  border-radius:0 3px 3px 0; box-shadow:0 5px 16px rgba(25,32,38,.11);
+  text-transform:none; letter-spacing:normal; font-weight:400; color:var(--muted);
+}
+
+/* ---- кнопки: тот же синий, что и всё остальное -------------------------- */
+.chip:hover{ border-color:var(--info); color:var(--info); background:var(--info-wash); }
+.chip[aria-pressed="true"]{ background:var(--info); border-color:var(--info); color:#fff; }
+
+/* ---- полоса прокрутки панели: тонкая, в тон ---------------------------- */
+.panel{ scrollbar-width:thin; scrollbar-color:var(--rule) transparent; }
+.panel::-webkit-scrollbar{ width:9px; }
+.panel::-webkit-scrollbar-thumb{ background:var(--rule); border-radius:9px; }
+.panel::-webkit-scrollbar-track{ background:transparent; }
+
+/* ============ ТЕЛЕФОН ======================================================
+   Разметка у приложения в две полосы: чертёж и панель, между ними ползунок.
+   На телефоне такое не работает по двум причинам сразу — полосы по 180 пикселей
+   каждая, и тянуть ползунок пальцем негде.
+
+   Поэтому на узком экране полосы встают друг под друга: сверху чертёж, под ним
+   панель со своей прокруткой. Ползунок прячется — делить нечего, деление задано
+   долями экрана.
+
+   100dvh, а не 100vh: на телефоне адресная строка то появляется, то уходит, и
+   при 100vh нижняя часть панели (а там кнопки) оказывается за краем экрана.
+   Старым браузерам остаётся 100vh — строкой выше. */
+@media (max-width: 760px){
+  html, body{ height:100vh; height:100dvh; }
+  .app{ flex-direction: column; height:100vh; height:100dvh; }
+  .stage{ flex: 0 0 46%; min-width:0; border-right:none; border-bottom:1px solid var(--rule); }
+  .splitter{ display:none; }
+  .panel{ flex: 1 1 auto; max-width:none; min-width:0; width:100%; min-height: 0;
+    /* Прокрутка панели не должна утягивать за собой страницу целиком. */
+    overscroll-behavior: contain; }
+  .stage header{ padding: 10px 12px 8px; }
+  .stage header h1{ font-size:17px; }
+  .panel header{ padding: 10px 12px 8px; }
+  :root{ --pad: 12px; }
+  .console[open]{ padding: 0 var(--pad) 10px; }
+  .console[open] > summary{ margin: 0 calc(-1 * var(--pad)); }
+  .gen-cols{ gap: 10px; }
+  .gen-cols > div{ flex-basis: 100%; }
+  /* Длинные записи переносятся ПО БУКВАМ, если иначе никак: «окружность через
+     центр описанной окружности AIMa» в 375 пикселей не влезает ни при каком
+     переносе по словам, а горизонтальная прокрутка внутри панели — худшее из
+     решений. */
+  .gen-facts li, tbody td.formula, .report{ overflow-wrap: anywhere; }
+  .gen-facts{ padding-left: 18px; }
+  /* РЯДЫ ПЕРЕНОСЯТСЯ, А НЕ ОБРЕЗАЮТСЯ. Замер на 375 пикселях: три кнопки в ряду
+     занимают 392 при доступных 351, и третья уходила за край ПАНЕЛИ — то есть
+     молча, без полосы прокрутки, по которой это было бы видно. */
+  /* Имена построений на телефоне переносятся, а не обрезаются многоточием:
+     «окружность, вписанная в сегмент» в 258 пикселей не влезает, и из
+     обрезанного имени не понять, что включаешь. */
+  .gen-op span, .gen-pred span{ white-space: normal; overflow: visible; text-overflow: clip; }
+  .console-bar{ flex-wrap: wrap; }
+  .gen-row{ flex-wrap: wrap; }
+  .gen-row > span{ min-width: 0; flex-wrap: wrap; }
+  .gen-row input[type="text"]{ flex-basis: 100%; }
+}
+
+/* ПАЛЕЦ ТОЛЩЕ КУРСОРА. Там, где нет наведения, цель должна быть не меньше
+   восьми миллиметров — иначе «?» и кнопки приходится тыкать по нескольку раз.
+   Спрашиваем про способ ввода, а не про ширину экрана: на планшете с мышью
+   мелкие цели как раз удобнее. */
+@media (hover: none){
+  .chip{ min-height: 32px; padding: 6px 12px; }
+  .canon{ min-height: 28px; padding: 4px 9px; font-size: 11px; }
+  .why > summary, .gen-diag > summary{
+    width: 24px; height: 24px; line-height: 22px; font-size: 12px;
+  }
+  .gen-op, .gen-pred{ padding: 3px 0; font-size: 12.5px; }
+  .gen-op input[type="checkbox"], .gen-pred input[type="checkbox"]{
+    width: 18px; height: 18px;
+  }
+  .gen-row input[type="number"]{ min-height: 30px; }
+  .legend > summary, .console > summary{ padding-top: 11px; padding-bottom: 11px; }
+}
+
+/* ============ УЧЁТНАЯ ЗАПИСЬ И ЧАТ =========================================
+   Оба блока живут в той же панели и тем же приёмом, что командные строки:
+   поэтому и оформление здесь — не новое, а продолжение прежнего. Своих цветов
+   не заводим: синий — настройка и состояние, красный — не вышло. */
+.acc-form input{
+  display:block; width:100%; margin:6px 0; font:inherit; font-family:var(--mono);
+  font-size:12.5px; padding:7px 9px; border:1px solid var(--rule);
+  border-radius:var(--radius); background:var(--paper); color:var(--ink);
+}
+.acc-form input:focus{ outline:none; border-color:var(--info); }
+.acc-note{ margin-top:6px; font-family:var(--mono); font-size:11.5px; color:var(--quiet); }
+.acc-note.bad{ color:var(--warn); }
+.acc-head{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.acc-tag{
+  margin-left:6px; padding:1px 6px; border-radius:var(--radius);
+  background:var(--info-wash); color:var(--info);
+  font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.04em;
+}
+/* Список людей — по строке на человека: имя слева, права кнопками справа.
+   Переносится само, потому что на телефоне три кнопки в строку не встают. */
+.acc-people{ margin-top:8px; }
+.acc-person{
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  padding:6px 0; border-top:1px solid var(--rule-soft);
+}
+.acc-who{ flex:1 1 120px; min-width:0; font-size:12.5px; }
+.acc-person .chip{ margin-top:0; }
+/* Право со сроком — ОДНОЙ ГРУППОЙ: название, срок и три действия. Группа не
+   разрывается переносом, и это не косметика: иначе на телефоне «+мес» от
+   генератора встаёт под словом «Бариканатор», и месяц уходит не туда. */
+.acc-access{
+  display:inline-flex; align-items:center; gap:4px; flex:0 0 auto;
+  padding:2px 4px; border:1px solid var(--rule-soft); border-radius:var(--radius);
+}
+.acc-access .acc-tag{ margin-left:0; }
+.acc-access .chip{ margin-top:0; }
+.acc-what{ font-size:12px; opacity:.8; }
+.admin-block[open]{ display:block; margin-top:8px; }
+
+/* Темы чата — те же кнопки, что везде; выбранная нажата. */
+.chat-topics{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+.chat-topics .chip{ margin-top:0; }
+/* Список сообщений прокручивается сам: иначе разговор выдавливает из панели
+   всё остальное, а он там не главный. */
+.chat-list{
+  max-height:38vh; overflow-y:auto; overscroll-behavior:contain;
+  border-top:1px solid var(--rule-soft); border-bottom:1px solid var(--rule-soft);
+  padding:4px 0;
+}
+.chat-msg{ padding:6px 0; border-bottom:1px solid var(--rule-soft); }
+.chat-msg:last-child{ border-bottom:none; }
+.chat-who{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.chat-who .acc-note{ margin-top:0; }
+.chat-who .canon{ margin-left:auto; }
+.chat-body-text{ margin-top:2px; font-size:13.5px; white-space:pre-wrap; overflow-wrap:anywhere; }
+#chat-body textarea{
+  width:100%; margin-top:8px; resize:vertical; min-height:44px;
+  font:inherit; font-size:13px; line-height:1.45; padding:7px 9px;
+  border:1px solid var(--rule); border-radius:var(--radius);
+  background:var(--paper); color:var(--ink);
+}
+#chat-body textarea:focus{ outline:none; border-color:var(--info); }
+
+/* ---- складная шапка ---------------------------------------------------------
+   На телефоне чертежу достаётся меньше половины экрана, и шапка — заголовок,
+   пояснение и четыре кнопки — забирает у него ещё треть. Кнопки нужны изредка
+   (сменить движок, спрятать панель GeoGebra), а место занимают всегда. */
+.stage header{ position: relative; }
+.head-toggle{
+  position: absolute; top: 6px; right: 8px; z-index: 2;
+  width: 26px; height: 26px; line-height: 1; padding: 0;
+  border: 1px solid var(--rule); border-radius: var(--radius);
+  background: var(--paper); color: var(--quiet); cursor: pointer;
+  font-family: var(--mono); font-size: 13px;
+  transition: color var(--tr), border-color var(--tr), transform var(--tr);
+}
+.head-toggle:hover{ color: var(--accent); border-color: var(--accent); }
+.head-toggle:focus-visible{ outline: 2px solid var(--info); outline-offset: 1px; }
+/* Свёрнутая шапка — полоска в 26 пикселей со стрелкой вниз: видно, что тут
+   что-то спрятано, и понятно, как достать. */
+body.head-folded .head-body{ display: none; }
+body.head-folded .stage header{ padding: 4px 8px; min-height: 30px; }
+body.head-folded .head-toggle{ transform: rotate(180deg); }
+@media (hover: none){
+  .head-toggle{ width: 32px; height: 32px; font-size: 15px; }
+}
+
+/* ============ ВКЛАДКИ И ПЕРЕХОДЫ ===========================================
+   Генератор, задачи, чат и учётная запись — наверху панели вкладками;
+   таблица движка — своей вкладкой. Полоса под активной вкладкой не
+   перескакивает, а едет; раздел появляется, а не вспыхивает. Всё движение —
+   одной кривой, и всё оно выключается, если человек просил меньше анимации. */
+:root{
+  --ease: cubic-bezier(.22,.8,.24,1);
+  --slow: 380ms var(--ease);
+  --tr: 180ms var(--ease);
+  --glow: 0 1px 2px rgba(25,32,38,.06), 0 6px 18px -8px rgba(25,32,38,.18);
+  --accent-soft: rgba(47,93,80,.10);
+}
+body{ background:
+  radial-gradient(1200px 600px at 110% -10%, rgba(47,93,80,.10), transparent 60%),
+  radial-gradient(900px 500px at -10% 110%, rgba(45,93,134,.08), transparent 60%),
+  var(--paper); }
+.stage header{ background: linear-gradient(135deg, rgba(47,93,80,.08), rgba(45,93,134,.05) 60%, transparent); }
+.stage header h1{ background: linear-gradient(90deg, var(--accent), var(--info)); -webkit-background-clip: text;
+  background-clip: text; color: transparent; }
+.panel{ background: linear-gradient(180deg, rgba(255,255,255,.65), rgba(255,255,255,0) 240px), var(--wash);
+  box-shadow: inset 1px 0 0 rgba(255,255,255,.6); }
+.panel header.panel-top{ position: sticky; top: 0; z-index: 5; display:block; padding: 10px 14px 8px;
+  background: rgba(251,250,246,.86); backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--rule); }
+.panel header.panel-top #status{ display:block; margin-top:6px; min-height: 1em; }
+.tabs{ position: relative; display:flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding-bottom: 6px; }
+.tabs::-webkit-scrollbar{ display:none; }
+.tab{ position: relative; z-index: 1; flex: 0 0 auto; border: 0; background: transparent; cursor: pointer;
+  padding: 7px 12px; border-radius: 999px; font: 14px Georgia, 'Times New Roman', serif; color: var(--muted);
+  transition: color var(--tr), background-color var(--tr), transform var(--tr); }
+.tab:hover{ color: var(--ink); background: var(--accent-soft); }
+.tab:active{ transform: scale(.97); }
+.tab:focus-visible{ outline: 2px solid var(--info); outline-offset: 1px; }
+.tab.active{ color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px rgba(47,93,80,.12); }
+.tab[hidden]{ display:none; }
+.tab-ink{ position: absolute; left: 0; bottom: 0; height: 3px; width: 0; border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--info)); box-shadow: 0 1px 6px rgba(47,93,80,.35);
+  transition: transform var(--slow), width var(--slow); pointer-events: none; }
+.tab-view{ display:flex; flex-direction:column; }
+.tab-view[hidden]{ display:none; }
+.tab-view[data-view="algebra"]{ flex: 1 0 auto; min-height: 0; }
+.tabs-ready .tab-view.active{ animation: view-in var(--slow) both; }
+@keyframes view-in{ from{ opacity:0; transform: translateY(10px); } to{ opacity:1; transform:none; } }
+.panel header.view-head{ border-bottom: 0; padding-bottom: 4px; }
+/* Блок вкладки — сама вкладка: заголовок-раскрывашка ему не нужен. */
+details.tabbed{ border-top: 0; }
+details.tabbed > summary{ display:none; }
+details.tabbed[open]{ padding: 6px 16px 16px; }
+/* Раскрывающиеся блоки внутри вкладок — карточками, и раскрываются плавно. */
+.console:not(.tabbed){ margin: 8px 12px 0; border: 1px solid var(--rule); border-radius: 10px; background: rgba(255,255,255,.55);
+  box-shadow: var(--glow); transition: box-shadow var(--tr), border-color var(--tr); }
+.console:not(.tabbed):hover{ border-color: rgba(47,93,80,.35); }
+.console:not(.tabbed) > summary{ border-radius: 10px; transition: background-color var(--tr), color var(--tr); }
+.console:not(.tabbed) > summary:hover{ background: var(--accent-soft); }
+details[open] > :not(summary){ animation: fold-in 260ms var(--ease) both; }
+@keyframes fold-in{ from{ opacity:0; transform: translateY(-4px); } to{ opacity:1; transform:none; } }
+.chip{ transition: background-color var(--tr), color var(--tr), border-color var(--tr), box-shadow var(--tr), transform var(--tr); }
+.chip:hover{ box-shadow: var(--glow); transform: translateY(-1px); }
+.chip:active{ transform: translateY(0) scale(.98); box-shadow: none; }
+.table-wrap{ margin: 4px 12px 0; border-radius: 10px; }
+.legend{ margin: 10px 12px 14px; }
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{ animation: none !important; transition: none !important; }
+}
+
+/* ПОЛОТНО ВО ВЕСЬ ЭКРАН: панель прячется кнопкой в углу шапки (см.
+   setupPanelToggle). Кнопка стоит рядом со стрелкой шапки и видна всегда —
+   и при свёрнутой шапке тоже, иначе панель было бы не вернуть. */
+.panel-toggle{ right: 40px; }
+body.panel-off .panel, body.panel-off .splitter{ display: none; }
+body.panel-off .stage{ flex: 1 1 100%; border-right: none; border-bottom: none; }
+@media (hover: none){ .panel-toggle{ right: 46px; } }
+.chip.on{ color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+/* Размер полотна задаёт раскладка, а не апплет внутри: после «во весь экран»
+   апплет становится высоким (см. fitApplet), и без этого полотно, вернувшись,
+   растягивалось под него и выталкивало панель за низ экрана. */
+.stage{ min-height: 0; overflow: hidden; }
+#ggb-element{ min-height: 0; min-width: 0; overflow: hidden; }
